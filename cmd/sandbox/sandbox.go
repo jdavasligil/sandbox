@@ -297,15 +297,15 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 			case mouse.Event:
 				source.prev.X = source.p.X
 				source.prev.Y = source.p.Y
-				source.p.X = float32(math.Max(math.Min(float64(e.X), WIDTH), 0))
-				source.p.Y = float32(math.Max(math.Min(float64(e.Y), HEIGHT), 0))
+				source.p.X = float32(math.Max(math.Min(float64(e.X), WIDTH-1), 0))
+				source.p.Y = float32(math.Max(math.Min(float64(e.Y), HEIGHT-1), 0))
 				source.isActive = (source.isActive || (e.Direction == mouse.DirPress)) && (e.Direction != mouse.DirRelease)
 			}
 		default:
 		}
 
 		// Spawn Sand
-		if source.isActive && !gridLocal.IsSet(int(source.p.X), int(source.p.X)) && sandCount < MAXSAND {
+		if source.isActive && !gridLocal.IsSet(int(source.p.X), int(source.p.Y)) && sandCount < MAXSAND {
 			SpawnSand(&world, &source)
 			sandCount++
 			gridLocal.Set(int(source.p.X), int(source.p.Y))
