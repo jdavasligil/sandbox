@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -18,13 +19,16 @@ import (
 )
 
 const (
-	WIDTH    = 1280
-	HEIGHT   = 720
-	DELTA    = 1.0 / 60.0
-	SIMTICK  = time.Second / 60
-	DRAWTICK = time.Second / 30
-	MAXSAND  = 460800
-	GRAVITY  = float32(32.0) // px/s/s
+	WIDTH    = 800
+	HEIGHT   = 800
+	SIMRATE  = 64
+	FRMRATE  = 60
+	DELTA    = 1.0 / SIMRATE
+	MAXVEL   = 4.0 * SIMRATE
+	SIMTICK  = time.Second / SIMRATE
+	DRAWTICK = time.Second / FRMRATE
+	MAXSAND  = WIDTH * HEIGHT / 2
+	GRAVITY  = 490.0 // px/s/s
 )
 
 var (
@@ -161,7 +165,10 @@ func InitializeWorld(world *ecs.World) {
 
 // OBJECTS
 type Source struct {
-	X, Y     float32
+	prev Position
+	p    Position
+	v    Velocity
+
 	isActive bool
 }
 
@@ -172,7 +179,7 @@ type Grid struct {
 
 func NewGrid() Grid {
 	return Grid{
-		data: make([]bool, WIDTH*(HEIGHT+1)),
+		data: make([]bool, WIDTH*HEIGHT),
 	}
 }
 
@@ -194,8 +201,8 @@ func (g *Grid) Reset() {
 
 func SpawnSand(world *ecs.World, source *Source) ecs.Entity {
 	e := world.NewEntity()
-	ecs.Add(world, e, Position{source.X, source.Y})
-	ecs.Add(world, e, Velocity{0, 2.0})
+	ecs.Add(world, e, Position{source.p.X, source.p.Y})
+	ecs.Add(world, e, Velocity{source.v.X, source.v.Y})
 	ecs.Add(world, e, Falling{})
 	return e
 }
@@ -203,32 +210,47 @@ func SpawnSand(world *ecs.World, source *Source) ecs.Entity {
 func DestroySand(world *ecs.World, source *Source, radius int) {
 }
 
-func ApplyPhysics(world *ecs.World, grid *Grid) {
-	ents, ps, vs := ecs.QueryIntersect2[Position, Velocity](world)
-	for i, e := range ents {
-		_, isFalling := ecs.MutQuery[Falling](world, e)
-		if isFalling {
-			// GRAVITY
-			v, _ := ecs.MutQuery[Velocity](world, e)
-			v.Y += DELTA * GRAVITY
+func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
+	ents, _ := ecs.QueryAll[Falling](world)
+	for _, e := range ents {
+		p, _ := ecs.MutQuery[Position](world, e)
+		v, _ := ecs.MutQuery[Velocity](world, e)
 
-			// FALLING / COLLISION
-			pos := ps[i]
-			posYApprox := int(pos.Y)
-			projPosY := pos.Y + DELTA*vs[i].Y
-			for posYApprox < int(projPosY) {
-				if grid.IsSet(int(pos.X), posYApprox+1) || posYApprox+1 == HEIGHT {
-					ecs.Remove[Falling](world, e)
-					v.Y = 0
-					return
-				}
-				posYApprox++
-			}
-			p, _ := ecs.MutQuery[Position](world, e)
-			grid.Clear(int(p.X), int(p.Y))
-			p.Y = projPosY
-			grid.Set(int(p.X), int(p.Y))
+		// GRAVITY
+		v.Y = float32(math.Min(float64(v.Y)+DELTA*GRAVITY, MAXVEL))
+
+		// MOTION
+		pNextX := p.X + DELTA*v.X
+		pNextY := p.Y + DELTA*v.Y
+
+		// COLLISION
+		if pNextX < 0 {
+			v.X = -v.X
+			pNextX = 0
 		}
+		if pNextX >= WIDTH {
+			v.X = -v.X
+			pNextX = WIDTH - 1
+		}
+		if pNextY < 0 {
+			v.Y = -v.Y
+			pNextY = 0
+		}
+		if pNextY >= HEIGHT || col.IsSet(int(pNextX), int(pNextY)) {
+			v.X = 0
+			v.Y = 0
+			pNextY = HEIGHT - 1
+			for grid.IsSet(int(pNextX), int(pNextY)) {
+				pNextY -= 1
+			}
+			col.Set(int(pNextX), int(pNextY))
+			ecs.Remove[Falling](world, e)
+		}
+
+		grid.Clear(int(p.X), int(p.Y))
+		p.X = pNextX
+		p.Y = pNextY
+		grid.Set(int(p.X), int(p.Y))
 	}
 }
 
@@ -238,35 +260,37 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 	sandCount := 0
 	source := Source{}
 	gridLocal := NewGrid()
+	collision := NewGrid()
 	worldTicker := time.NewTicker(SIMTICK)
 	drawTicker := time.NewTicker(DRAWTICK)
 	for {
+		// Handle Events
 		select {
 		case event := <-events:
 			switch e := event.(type) {
 			case mouse.Event:
-				if 0 < e.X && e.X < float32(WIDTH) {
-					source.X = e.X
-				}
-				if 0 < e.Y && e.Y < float32(HEIGHT) {
-					source.Y = e.Y
-				}
-				if e.Direction == mouse.DirPress {
-					source.isActive = true
-				} else if e.Direction == mouse.DirRelease {
-					source.isActive = false
-				}
+				source.prev.X = source.p.X
+				source.prev.Y = source.p.Y
+				source.p.X = float32(math.Max(math.Min(float64(e.X), WIDTH), 0))
+				source.p.Y = float32(math.Max(math.Min(float64(e.Y), HEIGHT), 0))
+				source.v.X = (source.p.X - source.prev.X) / DELTA
+				source.v.Y = (source.p.Y - source.prev.Y) / DELTA
+				source.isActive = (source.isActive || (e.Direction == mouse.DirPress)) && (e.Direction != mouse.DirRelease)
 			}
 		default:
 		}
+
 		// Spawn Sand
-		if source.isActive && sandCount < MAXSAND && !gridLocal.IsSet(int(source.X), int(source.Y)) {
+		if source.isActive && !gridLocal.IsSet(int(source.p.X), int(source.p.X)) && sandCount < MAXSAND {
 			SpawnSand(&world, &source)
 			sandCount++
-			gridLocal.Set(int(source.X), int(source.Y))
+			gridLocal.Set(int(source.p.X), int(source.p.Y))
 		}
+
 		// Simulate Physics
-		ApplyPhysics(&world, &gridLocal)
+		ApplyPhysics(&world, &gridLocal, &collision)
+
+		// Draw Call
 		select {
 		case <-drawTicker.C:
 			shared.mu.Lock()
@@ -275,6 +299,8 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 			(*win).Send(paint.Event{})
 		default:
 		}
-		<-worldTicker.C // Block until update time has elapsed.
+
+		// Block until update time has elapsed.
+		<-worldTicker.C
 	}
 }

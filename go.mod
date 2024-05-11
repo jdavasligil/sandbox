@@ -3,7 +3,7 @@ module github.com/jdavasligil/sandbox
 go 1.22.0
 
 require (
-	github.com/jdavasligil/go-ecs v0.0.0-20240504232743-919e70102a98
+	github.com/jdavasligil/go-ecs v0.0.0-20240509182548-a026498943cc
 	golang.org/x/exp/shiny v0.0.0-20240416160154-fe59bbe5cc7f
 	golang.org/x/mobile v0.0.0-20240404231514-09dbf07665ed
 )
