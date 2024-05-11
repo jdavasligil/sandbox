@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -200,6 +201,8 @@ func (g *Grid) Reset() {
 }
 
 func SpawnSand(world *ecs.World, source *Source) ecs.Entity {
+	source.v.X = (source.p.X-source.prev.X)/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
+	source.v.Y = (source.p.Y-source.prev.Y)/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
 	e := world.NewEntity()
 	ecs.Add(world, e, Position{source.p.X, source.p.Y})
 	ecs.Add(world, e, Velocity{source.v.X, source.v.Y})
@@ -227,23 +230,46 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 		if pNextX < 0 {
 			v.X = -v.X
 			pNextX = 0
-		}
-		if pNextX >= WIDTH {
+		} else if pNextX >= WIDTH {
 			v.X = -v.X
 			pNextX = WIDTH - 1
 		}
 		if pNextY < 0 {
 			v.Y = -v.Y
 			pNextY = 0
-		}
-		if pNextY >= HEIGHT || col.IsSet(int(pNextX), int(pNextY)) {
+		} else if pNextY >= HEIGHT {
 			v.X = 0
 			v.Y = 0
 			pNextY = HEIGHT - 1
-			for grid.IsSet(int(pNextX), int(pNextY)) {
+			for col.IsSet(int(pNextX), int(pNextY)) {
 				pNextY -= 1
 			}
 			col.Set(int(pNextX), int(pNextY))
+			ecs.Remove[Falling](world, e)
+		} else if col.IsSet(int(pNextX), int(pNextY)) {
+			l := int(math.Max(float64(pNextX)-1, 0))
+			r := int(math.Min(float64(pNextX)+1, WIDTH-1))
+			x := int(pNextX)
+			y := int(pNextY)
+			setL := col.IsSet(l, int(pNextY))
+			setR := col.IsSet(r, int(pNextY))
+			if setL && setR {
+				y--
+			} else if !(setL || setR) {
+				if l%2 == 0 {
+					x = l
+				} else {
+					x = r
+				}
+			} else if setL {
+				x = r
+			} else {
+				x = l
+			}
+
+			col.Set(x, y)
+			pNextX = float32(x)
+			pNextY = float32(y)
 			ecs.Remove[Falling](world, e)
 		}
 
@@ -273,8 +299,6 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 				source.prev.Y = source.p.Y
 				source.p.X = float32(math.Max(math.Min(float64(e.X), WIDTH), 0))
 				source.p.Y = float32(math.Max(math.Min(float64(e.Y), HEIGHT), 0))
-				source.v.X = (source.p.X - source.prev.X) / DELTA
-				source.v.Y = (source.p.Y - source.prev.Y) / DELTA
 				source.isActive = (source.isActive || (e.Direction == mouse.DirPress)) && (e.Direction != mouse.DirRelease)
 			}
 		default:
