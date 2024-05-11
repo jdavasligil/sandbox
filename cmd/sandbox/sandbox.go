@@ -247,24 +247,32 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 			col.Set(int(pNextX), int(pNextY))
 			ecs.Remove[Falling](world, e)
 		} else if col.IsSet(int(pNextX), int(pNextY)) {
-			l := int(math.Max(float64(pNextX)-1, 0))
-			r := int(math.Min(float64(pNextX)+1, WIDTH-1))
 			x := int(pNextX)
 			y := int(pNextY)
-			setL := col.IsSet(l, int(pNextY))
-			setR := col.IsSet(r, int(pNextY))
-			if setL && setR {
-				y--
-			} else if !(setL || setR) {
-				if l%2 == 0 {
-					x = l
-				} else {
+			for {
+				l := int(math.Max(float64(x)-1, 0))
+				r := int(math.Min(float64(x)+1, WIDTH-1))
+				setL := col.IsSet(l, int(y))
+				setR := col.IsSet(r, int(y))
+				if setL && setR {
+					y--
+				} else if !(setL || setR) {
+					if l%2 == 0 {
+						x = l
+					} else {
+						x = r
+					}
+				} else if setL {
 					x = r
+				} else {
+					x = l
 				}
-			} else if setL {
-				x = r
-			} else {
-				x = l
+				if !col.IsSet(x, y) {
+					break
+				}
+			}
+			for (y+1) < HEIGHT && !col.IsSet(x, y+1) {
+				y++
 			}
 
 			col.Set(x, y)
