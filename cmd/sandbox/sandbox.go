@@ -214,10 +214,10 @@ func DestroySand(world *ecs.World, source *Source, radius int) {
 }
 
 func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
-	ents, _ := ecs.QueryAll[Falling](world)
+	ents, _ := ecs.Query[Falling](world)
 	for _, e := range ents {
-		p, _ := ecs.MutQuery[Position](world, e)
-		v, _ := ecs.MutQuery[Velocity](world, e)
+		p, _ := ecs.GetMut[Position](world, e)
+		v, _ := ecs.GetMut[Velocity](world, e)
 
 		// GRAVITY
 		v.Y = float32(math.Min(float64(v.Y)+DELTA*GRAVITY, MAXVEL))
@@ -297,6 +297,7 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 	collision := NewGrid()
 	worldTicker := time.NewTicker(SIMTICK)
 	drawTicker := time.NewTicker(DRAWTICK)
+	profileTicker := time.NewTicker(time.Second)
 	for {
 		// Handle Events
 		select {
@@ -329,6 +330,20 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 			copy(shared.grid.data, gridLocal.data)
 			shared.mu.Unlock()
 			(*win).Send(paint.Event{})
+		default:
+		}
+
+		// Report Memory Usage
+		select {
+		case <-profileTicker.C:
+			psize := ecs.MemUsage[Position](&world)
+			vsize := ecs.MemUsage[Velocity](&world)
+			fsize := ecs.MemUsage[Falling](&world)
+			log.Printf("ENT:   %d", world.EntityCount())
+			log.Printf("MEM:   [p,v,f] = [%d,%d,%d]", psize, vsize, fsize)
+			log.Printf("TOTAL: %d", psize+vsize+fsize)
+			log.Println()
+			ecs.Sweep[Falling](&world)
 		default:
 		}
 

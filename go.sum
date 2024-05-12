@@ -2,10 +2,8 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20221208032759-85de2813cf6b h1:a26Bdkl2B9PmY
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20221208032759-85de2813cf6b/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231223183121-56fa3ac82ce7 h1:7tf/0aw5DxRQjr7WaNqgtjidub6v21L2cogKIbMcTYw=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231223183121-56fa3ac82ce7/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/jdavasligil/go-ecs v0.0.0-20240504232743-919e70102a98 h1:R020hsj+Wop5LD5cbMFKlK02wARpHrfIrhXkmkBztQY=
-github.com/jdavasligil/go-ecs v0.0.0-20240504232743-919e70102a98/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
-github.com/jdavasligil/go-ecs v0.0.0-20240509182548-a026498943cc h1:GW6wwo2ws0SLCttxmdDNEvRBbhgcbSgADeHZM1JYLlE=
-github.com/jdavasligil/go-ecs v0.0.0-20240509182548-a026498943cc/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
+github.com/jdavasligil/go-ecs v0.0.0-20240512060329-f7a735ddc4b3 h1:OR8QYpLiFfX4i6TWNwgcn8KbB2bgBvwCgWy2vihJbfs=
+github.com/jdavasligil/go-ecs v0.0.0-20240512060329-f7a735ddc4b3/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
 golang.org/x/exp/shiny v0.0.0-20240416160154-fe59bbe5cc7f h1:W11kcexeK9nBV2PQVuWu7jFf0rIyI9jb+5AH1IxP7Xc=
