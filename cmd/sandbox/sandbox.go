@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -20,6 +19,7 @@ import (
 )
 
 const (
+	PAGESIZE = 8
 	WIDTH    = 800
 	HEIGHT   = 800
 	SIMRATE  = 64
@@ -159,9 +159,9 @@ func (f Falling) ID() ecs.ComponentID {
 }
 
 func InitializeWorld(world *ecs.World) {
-	ecs.Initialize[Position](world)
-	ecs.Initialize[Velocity](world)
-	ecs.Initialize[Falling](world)
+	ecs.Initialize[Position](world, PAGESIZE)
+	ecs.Initialize[Velocity](world, PAGESIZE)
+	ecs.Initialize[Falling](world, PAGESIZE)
 }
 
 // OBJECTS
@@ -200,14 +200,24 @@ func (g *Grid) Reset() {
 	clear(g.data)
 }
 
-func SpawnSand(world *ecs.World, source *Source) ecs.Entity {
-	source.v.X = (source.p.X-source.prev.X)/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
-	source.v.Y = (source.p.Y-source.prev.Y)/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
-	e := world.NewEntity()
-	ecs.Add(world, e, Position{source.p.X, source.p.Y})
-	ecs.Add(world, e, Velocity{source.v.X, source.v.Y})
-	ecs.Add(world, e, Falling{})
-	return e
+func SpawnSand(world *ecs.World, source *Source, r int) {
+	dx := (source.p.X - source.prev.X)
+	dy := (source.p.Y - source.prev.Y)
+	h := int(source.p.X)
+	k := int(source.p.Y)
+	for y := k - r; y < k+r; y++ {
+		for x := h - r; x < h+r; x++ {
+			if (x-h)*(x-h)+(y-k)*(y-k) <= r*r &&
+				x >= 0 && y >= 0 && x < WIDTH && y < HEIGHT {
+				e := world.NewEntity()
+				source.v.X = dx/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
+				source.v.Y = dy/DELTA/2.0 + (rand.Float32()-rand.Float32())/DELTA/2.0
+				ecs.Add(world, e, Position{float32(x), float32(y)})
+				ecs.Add(world, e, Velocity{source.v.X, source.v.Y})
+				ecs.Add(world, e, Falling{})
+			}
+		}
+	}
 }
 
 func DestroySand(world *ecs.World, source *Source, radius int) {
@@ -220,13 +230,14 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 		v, _ := ecs.GetMut[Velocity](world, e)
 
 		// GRAVITY
-		v.Y = float32(math.Min(float64(v.Y)+DELTA*GRAVITY, MAXVEL))
+		v.Y = min(v.Y+DELTA*GRAVITY, MAXVEL)
 
 		// MOTION
 		pNextX := p.X + DELTA*v.X
 		pNextY := p.Y + DELTA*v.Y
 
 		// COLLISION
+		colSet := false
 		if pNextX < 0 {
 			v.X = -v.X
 			pNextX = 0
@@ -245,17 +256,21 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 				pNextY -= 1
 			}
 			col.Set(int(pNextX), int(pNextY))
-			ecs.Remove[Falling](world, e)
+			colSet = true
+			ecs.RemoveAndClean[Falling](world, e)
 		} else if col.IsSet(int(pNextX), int(pNextY)) {
 			x := int(pNextX)
 			y := int(pNextY)
 			for {
-				l := int(math.Max(float64(x)-1, 0))
-				r := int(math.Min(float64(x)+1, WIDTH-1))
-				setL := col.IsSet(l, int(y))
-				setR := col.IsSet(r, int(y))
+				l := max(x-1, 0)
+				r := min(x+1, WIDTH-1)
+				setL := col.IsSet(l, y)
+				setR := col.IsSet(r, y)
 				if setL && setR {
-					y--
+					y = max(y-1, 0)
+					if y == 0 {
+						break
+					}
 				} else if !(setL || setR) {
 					if l%2 == 0 {
 						x = l
@@ -268,6 +283,9 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 					x = l
 				}
 				if !col.IsSet(x, y) {
+					for (y+1) < HEIGHT && !col.IsSet(x, y+1) {
+						y++
+					}
 					break
 				}
 			}
@@ -278,10 +296,13 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 			col.Set(x, y)
 			pNextX = float32(x)
 			pNextY = float32(y)
-			ecs.Remove[Falling](world, e)
+			colSet = true
+			ecs.RemoveAndClean[Falling](world, e)
 		}
 
-		grid.Clear(int(p.X), int(p.Y))
+		if !colSet {
+			grid.Clear(int(p.X), int(p.Y))
+		}
 		p.X = pNextX
 		p.Y = pNextY
 		grid.Set(int(p.X), int(p.Y))
@@ -289,7 +310,11 @@ func ApplyPhysics(world *ecs.World, grid *Grid, col *Grid) {
 }
 
 func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
-	world := ecs.NewWorld()
+	world := ecs.NewWorld(ecs.WorldOptions{
+		EntityLimit:    WIDTH * HEIGHT,
+		RecycleLimit:   1024,
+		ComponentLimit: 255,
+	})
 	InitializeWorld(&world)
 	sandCount := 0
 	source := Source{}
@@ -306,8 +331,8 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 			case mouse.Event:
 				source.prev.X = source.p.X
 				source.prev.Y = source.p.Y
-				source.p.X = float32(math.Max(math.Min(float64(e.X), WIDTH-1), 0))
-				source.p.Y = float32(math.Max(math.Min(float64(e.Y), HEIGHT-1), 0))
+				source.p.X = max(min(e.X, WIDTH-1), 0)
+				source.p.Y = max(min(e.Y, HEIGHT-1), 0)
 				source.isActive = (source.isActive || (e.Direction == mouse.DirPress)) && (e.Direction != mouse.DirRelease)
 			}
 		default:
@@ -315,9 +340,9 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 
 		// Spawn Sand
 		if source.isActive && !gridLocal.IsSet(int(source.p.X), int(source.p.Y)) && sandCount < MAXSAND {
-			SpawnSand(&world, &source)
+			SpawnSand(&world, &source, 8)
 			sandCount++
-			gridLocal.Set(int(source.p.X), int(source.p.Y))
+			//gridLocal.Set(int(source.p.X), int(source.p.Y))
 		}
 
 		// Simulate Physics
@@ -341,7 +366,7 @@ func Simulate(win *screen.Window, events <-chan any, shared *Shared) {
 			fsize := ecs.MemUsage[Falling](&world)
 			log.Printf("ENT:   %d", world.EntityCount())
 			log.Printf("MEM:   [p,v,f] = [%d,%d,%d]", psize, vsize, fsize)
-			log.Printf("TOTAL: %d", psize+vsize+fsize)
+			log.Printf("TOTAL: %d", world.MemUsage()+psize+vsize+fsize)
 			log.Println()
 			ecs.Sweep[Falling](&world)
 		default:
