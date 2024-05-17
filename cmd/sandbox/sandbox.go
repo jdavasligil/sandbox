@@ -19,7 +19,6 @@ import (
 )
 
 const (
-	PAGESIZE = 8
 	WIDTH    = 800
 	HEIGHT   = 800
 	SIMRATE  = 64
@@ -159,9 +158,9 @@ func (f Falling) ID() ecs.ComponentID {
 }
 
 func InitializeWorld(world *ecs.World) {
-	ecs.Initialize[Position](world, PAGESIZE)
-	ecs.Initialize[Velocity](world, PAGESIZE)
-	ecs.Initialize[Falling](world, PAGESIZE)
+	ecs.Initialize[Position](world)
+	ecs.Initialize[Velocity](world)
+	ecs.Initialize[Falling](world)
 }
 
 // OBJECTS

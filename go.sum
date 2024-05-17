@@ -6,6 +6,8 @@ github.com/jdavasligil/go-ecs v0.0.0-20240515193435-190a78a9be53 h1:xz8OCaoXdmf5
 github.com/jdavasligil/go-ecs v0.0.0-20240515193435-190a78a9be53/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
 github.com/jdavasligil/go-ecs v0.0.0-20240515210739-559b831c4796 h1:EnTBsb1t20662ELT5qKbkpYA/duj0DcNWkl/JsxB3Js=
 github.com/jdavasligil/go-ecs v0.0.0-20240515210739-559b831c4796/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
+github.com/jdavasligil/go-ecs v1.1.0 h1:hfoWgvMOl1wjJoJF4I/htMWa98nGzE3NGE0uld8sQm8=
+github.com/jdavasligil/go-ecs v1.1.0/go.mod h1:K9xEUdFhG1yqHJcOSi86Qj43zRKKP4FN2W0Pa8EF6tQ=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
 golang.org/x/exp/shiny v0.0.0-20240416160154-fe59bbe5cc7f h1:W11kcexeK9nBV2PQVuWu7jFf0rIyI9jb+5AH1IxP7Xc=
